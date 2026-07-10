@@ -1,13 +1,7 @@
-/*
- * bmp280.c
- *
- *  Created on: Jul 3, 2026
- *      Author: PC
- */
-
 #include "bmp280.h"
-
-static I2C_HandleTypeDef *bmp280_i2c;
+#include "delay.h"
+#include "i2c.h"
+#include <math.h>
 
 typedef struct
 {
@@ -34,75 +28,66 @@ static int32_t adc_P;
 static int32_t adc_T;
 
 //3 ham sau la 3 cong cu giao tiep i2c
-static HAL_StatusTypeDef BMP280_WriteReg(uint8_t reg, uint8_t data)
+static BMP280_StatusTypeDef BMP280_WriteReg(uint8_t reg, uint8_t data)
 {
-    return HAL_I2C_Mem_Write(
-        bmp280_i2c,
-        BMP280_ADDR,
-        reg,
-        I2C_MEMADD_SIZE_8BIT,
-        &data,
-        1,
-        HAL_MAX_DELAY
-    );
+    if (i2c_mem_write(BMP280_ADDR, reg, &data, 1) != I2C_OK)
+    {
+        return BMP280_ERROR;
+    }
+
+    return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_ReadReg(uint8_t reg, uint8_t *data)
+static BMP280_StatusTypeDef BMP280_ReadReg(uint8_t reg, uint8_t *data)
 {
-    return HAL_I2C_Mem_Read(
-        bmp280_i2c,
-        BMP280_ADDR,
-        reg,
-        I2C_MEMADD_SIZE_8BIT,
-        data,
-        1,
-        HAL_MAX_DELAY
-    );
+    if (i2c_mem_read(BMP280_ADDR, reg, data, 1) != I2C_OK)
+    {
+        return BMP280_ERROR;
+    }
+
+    return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_ReadRegs(uint8_t reg, uint8_t *data, uint8_t len)
+static BMP280_StatusTypeDef BMP280_ReadRegs(uint8_t reg, uint8_t *data, uint8_t len)
 {
-    return HAL_I2C_Mem_Read(
-        bmp280_i2c,
-        BMP280_ADDR,
-        reg,
-        I2C_MEMADD_SIZE_8BIT,
-        data,
-        len,
-        HAL_MAX_DELAY
-    );
+    if (i2c_mem_read(BMP280_ADDR, reg, data, len) != I2C_OK)
+    {
+        return BMP280_ERROR;
+    }
+
+    return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_CheckID(void)
+static BMP280_StatusTypeDef BMP280_CheckID(void)
 {
 	uint8_t BMP280_ID;
-	if (BMP280_ReadReg(BMP280_REG_ID, &BMP280_ID) != HAL_OK)
+	if (BMP280_ReadReg(BMP280_REG_ID, &BMP280_ID) != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
 	if (BMP280_ID == BMP280_CHIP_ID)
     	{
-        	return HAL_OK;
+        	return BMP280_OK;
     	}
 
-    	return HAL_ERROR;
+    	return BMP280_ERROR;
 }
 
-static HAL_StatusTypeDef BMP280_Reset(void)
+static BMP280_StatusTypeDef BMP280_Reset(void)
 {
-	if (BMP280_WriteReg(BMP280_REG_RESET, 0XB6) != HAL_OK)
+	if (BMP280_WriteReg(BMP280_REG_RESET, 0XB6) != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	return HAL_OK;
+	return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_ReadCalibration(void)
+static BMP280_StatusTypeDef BMP280_ReadCalibration(void)
 {
     uint8_t buffer[24];
-    if (BMP280_ReadRegs(BMP280_REG_DIG_T1, buffer, 24) != HAL_OK)
+    if (BMP280_ReadRegs(BMP280_REG_DIG_T1, buffer, 24) != BMP280_OK)
     {
-        return HAL_ERROR;
+        return BMP280_ERROR;
     }
     calib.dig_T1 = (uint16_t)(((uint16_t)buffer[1]  << 8) | buffer[0]);
     calib.dig_T2 = (int16_t) (((uint16_t)buffer[3]  << 8) | buffer[2]);
@@ -116,66 +101,67 @@ static HAL_StatusTypeDef BMP280_ReadCalibration(void)
     calib.dig_P7 = (int16_t) (((uint16_t)buffer[19] << 8) | buffer[18]);
     calib.dig_P8 = (int16_t) (((uint16_t)buffer[21] << 8) | buffer[20]);
     calib.dig_P9 = (int16_t) (((uint16_t)buffer[23] << 8) | buffer[22]);
-    return HAL_OK;
+    return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_SetCtrlMeas(void)
+static BMP280_StatusTypeDef BMP280_SetCtrlMeas(void)
 {
-	if (BMP280_WriteReg(BMP280_REG_CTRL_MEAS, 0x2F) != HAL_OK) // 00101111 tempx1, pressx4, normal
+	if (BMP280_WriteReg(BMP280_REG_CTRL_MEAS, 0x2F) != BMP280_OK) // 00101111 tempx1, pressx4, normal
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	return HAL_OK;
+	return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_SetConfig(void)
+static BMP280_StatusTypeDef BMP280_SetConfig(void)
 {
-	if (BMP280_WriteReg(BMP280_REG_CONFIG, 0x08) != HAL_OK) // 000 010 00 tsb=0,5ms, filter=4, spi off
+	if (BMP280_WriteReg(BMP280_REG_CONFIG, 0x08) != BMP280_OK) // 000 010 00 tsb=0,5ms, filter=4, spi off
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	return HAL_OK;
+	return BMP280_OK;
 }
 
-HAL_StatusTypeDef BMP280_Init(I2C_HandleTypeDef *hi2c)
+BMP280_StatusTypeDef BMP280_Init(void)
 {
-	bmp280_i2c = hi2c;
-	if (BMP280_CheckID() != HAL_OK)
+	i2c_init();
+
+	if (BMP280_CheckID() != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	if (BMP280_Reset() != HAL_OK)
+	if (BMP280_Reset() != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
 
-	HAL_Delay(2);
+	delay_ms(2);
 
-	if (BMP280_ReadCalibration() != HAL_OK)
+	if (BMP280_ReadCalibration() != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	if (BMP280_SetCtrlMeas() != HAL_OK)
+    if (BMP280_SetConfig() != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	if (BMP280_SetConfig() != HAL_OK)
+	if (BMP280_SetCtrlMeas() != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
-	return HAL_OK;
+	return BMP280_OK;
 }
 
-static HAL_StatusTypeDef BMP280_ReadRawData(void)
+static BMP280_StatusTypeDef BMP280_ReadRawData(void)
 {
 	uint8_t rawData[6];
-	if (BMP280_ReadRegs(BMP280_REG_PRESS_MSB, rawData, 6) != HAL_OK)
+	if (BMP280_ReadRegs(BMP280_REG_PRESS_MSB, rawData, 6) != BMP280_OK)
 	{
-		return HAL_ERROR;
+		return BMP280_ERROR;
 	}
 	adc_P= ((int32_t)rawData[0] << 12) | ((int32_t)rawData[1] << 4) | ((int32_t)rawData[2] >> 4);
 	adc_T= ((int32_t)rawData[3] << 12) | ((int32_t)rawData[4] << 4) | ((int32_t)rawData[5] >> 4);
-	return HAL_OK;
+	return BMP280_OK;
 }
 
 static int32_t BMP280_CompensateTemperature(void)
@@ -230,29 +216,29 @@ static uint32_t BMP280_CompensatePressure(void)
 static float P0 = 0;
 static uint8_t altitude_initialized = 0;
 
-HAL_StatusTypeDef BMP280_Altitude_Init(void)
+BMP280_StatusTypeDef BMP280_SetReferencePressure(void)
 {
     if (altitude_initialized)
     {
-	return HAL_OK;
+	return BMP280_OK;
     }
 
-    if (BMP280_ReadRawData() != HAL_OK)
+    if (BMP280_ReadRawData() != BMP280_OK)
     {
-	return HAL_ERROR;
+	return BMP280_ERROR;
     }
 
     BMP280_CompensateTemperature();
     P0 = BMP280_CompensatePressure() / 256.0f;
     altitude_initialized = 1;
-	return HAL_OK;
+	return BMP280_OK;
 }
 
-HAL_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temperature, float *pressure, float *altitude)
+BMP280_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temperature, float *pressure, float *altitude)
 {
-    if (BMP280_ReadRawData() != HAL_OK)
+    if (BMP280_ReadRawData() != BMP280_OK)
     {
-	return HAL_ERROR;
+	return BMP280_ERROR;
     }
 
     *temperature = BMP280_CompensateTemperature() / 100.0f;
@@ -262,10 +248,10 @@ HAL_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temperatu
     if (!altitude_initialized || P0 == 0)
     {
         *altitude = 0;
-        return HAL_OK;
+        return BMP280_OK;
     }
 
     *altitude = 44330.0f * (1.0f - powf(*pressure / P0, 0.1903f));
 
-    return HAL_OK;
+    return BMP280_OK;
 }
