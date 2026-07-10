@@ -1,21 +1,12 @@
-/*
- * bmp280.h
- *
- *  Created on: Jul 3, 2026
- *      Author: PC
- */
-
 #ifndef INC_BMP280_H_
 #define INC_BMP280_H_
 
-#include "stm32f4xx_hal.h" // chua cau truc, trang thai
 #include <stdint.h> // thu vien chuan, chua cac kieu du lieu
-#include <math.h>
 
-#define BMP280_ADDR_LOW		(0x76<<1) // dia chi i2c
-#define BMP280_ADDR_HIGH 	(0x77<<1) // dia chi i2c
+#define BMP280_ADDR_LOW		0x76 // dia chi i2c
+#define BMP280_ADDR_HIGH 	0x77 // dia chi i2c
 
-#define BMP280_ADDR BMP280_ADDR_LOW // chon dia chi i2c
+#define BMP280_ADDR BMP280_ADDR_LOW // i2c.c tu dich trai dia chi 7-bit khi gui len bus
 
 #define BMP280_REG_ID 		 0xD0 // kiem tra chip
 #define BMP280_CHIP_ID 		 0x58
@@ -46,10 +37,16 @@
 #define BMP280_REG_DIG_P8	 0x9C
 #define BMP280_REG_DIG_P9	 0x9E
 
-HAL_StatusTypeDef BMP280_Init(I2C_HandleTypeDef *hi2c);
+typedef enum
+{
+    BMP280_OK =0,
+    BMP280_ERROR,
+    BMP280_BUSY,
+    BMP280_TIMEOUT
+} BMP280_StatusTypeDef;
 
-HAL_StatusTypeDef BMP280_Altitude_Init(void);
-
-HAL_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temperature, float *pressure, float *altitude);
+BMP280_StatusTypeDef BMP280_Init(void);
+BMP280_StatusTypeDef BMP280_SetReferencePressure(void);
+BMP280_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temperature, float *pressure, float *altitude);
 
 #endif /* INC_BMP280_H_ */
