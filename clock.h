@@ -62,24 +62,4 @@ void rcc_enable_APB1(APB1_peripheral_t peripheral);
 void rcc_enable_APB2(APB2_peripheral_t peripheral);
 void rcc_init();
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #endif /* INC_CLOCK_H_ */
