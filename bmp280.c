@@ -26,11 +26,15 @@ static int32_t t_fine; // t_fine = var1+ var2
 
 static int32_t adc_P;
 static int32_t adc_T;
+static uint8_t bmp280_addr = BMP280_ADDR_LOW;
+volatile int32_t debug_adc_P;
+volatile int32_t debug_adc_T;
+volatile uint16_t debug_dig_P1;
 
 //3 ham sau la 3 cong cu giao tiep i2c
 static BMP280_StatusTypeDef BMP280_WriteReg(uint8_t reg, uint8_t data)
 {
-    if (i2c_mem_write(BMP280_ADDR, reg, &data, 1) != I2C_OK)
+    if (i2c_mem_write(bmp280_addr, reg, &data, 1) != I2C_OK)
     {
         return BMP280_ERROR;
     }
@@ -40,7 +44,7 @@ static BMP280_StatusTypeDef BMP280_WriteReg(uint8_t reg, uint8_t data)
 
 static BMP280_StatusTypeDef BMP280_ReadReg(uint8_t reg, uint8_t *data)
 {
-    if (i2c_mem_read(BMP280_ADDR, reg, data, 1) != I2C_OK)
+    if (i2c_mem_read(bmp280_addr, reg, data, 1) != I2C_OK)
     {
         return BMP280_ERROR;
     }
@@ -50,7 +54,7 @@ static BMP280_StatusTypeDef BMP280_ReadReg(uint8_t reg, uint8_t *data)
 
 static BMP280_StatusTypeDef BMP280_ReadRegs(uint8_t reg, uint8_t *data, uint8_t len)
 {
-    if (i2c_mem_read(BMP280_ADDR, reg, data, len) != I2C_OK)
+    if (i2c_mem_read(bmp280_addr, reg, data, len) != I2C_OK)
     {
         return BMP280_ERROR;
     }
@@ -61,14 +65,20 @@ static BMP280_StatusTypeDef BMP280_ReadRegs(uint8_t reg, uint8_t *data, uint8_t 
 static BMP280_StatusTypeDef BMP280_CheckID(void)
 {
 	uint8_t BMP280_ID;
-	if (BMP280_ReadReg(BMP280_REG_ID, &BMP280_ID) != BMP280_OK)
-	{
-		return BMP280_ERROR;
-	}
-	if (BMP280_ID == BMP280_CHIP_ID)
+
+	bmp280_addr = BMP280_ADDR_LOW;
+	if ((BMP280_ReadReg(BMP280_REG_ID, &BMP280_ID) == BMP280_OK) &&
+        (BMP280_ID == BMP280_CHIP_ID))
     	{
         	return BMP280_OK;
     	}
+
+	bmp280_addr = BMP280_ADDR_HIGH;
+	if ((BMP280_ReadReg(BMP280_REG_ID, &BMP280_ID) == BMP280_OK) &&
+        (BMP280_ID == BMP280_CHIP_ID))
+        {
+            return BMP280_OK;
+        }
 
     	return BMP280_ERROR;
 }
@@ -135,7 +145,7 @@ BMP280_StatusTypeDef BMP280_Init(void)
 		return BMP280_ERROR;
 	}
 
-	delay_ms(2);
+	delay_ms(2000);
 
 	if (BMP280_ReadCalibration() != BMP280_OK)
 	{
@@ -149,6 +159,8 @@ BMP280_StatusTypeDef BMP280_Init(void)
 	{
 		return BMP280_ERROR;
 	}
+
+	delay_ms(2000);
 	return BMP280_OK;
 }
 
@@ -161,6 +173,9 @@ static BMP280_StatusTypeDef BMP280_ReadRawData(void)
 	}
 	adc_P= ((int32_t)rawData[0] << 12) | ((int32_t)rawData[1] << 4) | ((int32_t)rawData[2] >> 4);
 	adc_T= ((int32_t)rawData[3] << 12) | ((int32_t)rawData[4] << 4) | ((int32_t)rawData[5] >> 4);
+    debug_adc_P = adc_P;
+    debug_adc_T = adc_T;
+    debug_dig_P1 = calib.dig_P1;
 	return BMP280_OK;
 }
 
@@ -183,34 +198,37 @@ static int32_t BMP280_CompensateTemperature(void)
 
 static uint32_t BMP280_CompensatePressure(void)
 {
-    int64_t var1;
-    int64_t var2;
-    int64_t Final_Press;
+    int32_t var1, var2;
+    uint32_t p;
 
-    var1 = ((int64_t)t_fine) - 128000;
-
-    var2 = var1 * var1 * (int64_t)calib.dig_P6;
-    var2 = var2 + ((var1 * (int64_t)calib.dig_P5) << 17);
-    var2 = var2 + (((int64_t)calib.dig_P4) << 35);
-
-    var1 = ((var1 * var1 * (int64_t)calib.dig_P3) >> 8) + ((var1 * (int64_t)calib.dig_P2) << 12);
-
-    var1 = (((((int64_t)1) << 47) + var1) * (int64_t)calib.dig_P1) >> 33;
+    var1 = (((int32_t)t_fine) >> 1) - (int32_t)64000;
+    var2 = (((var1 >> 2) * (var1 >> 2)) >> 11) * ((int32_t)calib.dig_P6);
+    var2 = var2 + ((var1 * ((int32_t)calib.dig_P5)) << 1);
+    var2 = (var2 >> 2) + (((int32_t)calib.dig_P4) << 16);
+    var1 = (((calib.dig_P3 * (((var1 >> 2) * (var1 >> 2)) >> 13)) >> 3) + ((((int32_t)calib.dig_P2) * var1) >> 1)) >> 18;
+    var1 = ((((32768 + var1)) * ((int32_t)calib.dig_P1)) >> 15);
 
     if (var1 == 0)
     {
-        return 0;
+        return 0; // Tránh lỗi chia cho 0
     }
 
-    Final_Press = 1048576 - adc_P;
-    Final_Press = (((Final_Press << 31) - var2) * 3125) / var1;
+    p = (((uint32_t)(((int32_t)1048576) - adc_P) - (uint32_t)(var2 >> 12))) * 3125;
+    
+    if (p < 0x80000000)
+    {
+        p = (p << 1) / ((uint32_t)var1);
+    }
+    else
+    {
+        p = (p / (uint32_t)var1) * 2;
+    }
 
-    var1 = (((int64_t)calib.dig_P9) * (Final_Press >> 13) * (Final_Press >> 13)) >> 25;
-    var2 = (((int64_t)calib.dig_P8) * Final_Press) >> 19;
+    var1 = (((int32_t)calib.dig_P9) * ((int32_t)(((p >> 3) * (p >> 3)) >> 13))) >> 12;
+    var2 = (((int32_t)(p >> 2)) * ((int32_t)calib.dig_P8)) >> 13;
+    p = (uint32_t)((int32_t)p + ((var1 + var2 + calib.dig_P7) >> 4));
 
-    Final_Press = ((Final_Press + var1 + var2) >> 8) + (((int64_t)calib.dig_P7) << 4);
-
-    return (uint32_t)Final_Press;
+    return p;
 }
 
 static float P0 = 0;
@@ -229,7 +247,7 @@ BMP280_StatusTypeDef BMP280_SetReferencePressure(void)
     }
 
     BMP280_CompensateTemperature();
-    P0 = BMP280_CompensatePressure() / 256.0f;
+    P0 = BMP280_CompensatePressure();
     altitude_initialized = 1;
 	return BMP280_OK;
 }
@@ -243,7 +261,7 @@ BMP280_StatusTypeDef BMP280_ReadTemperatureAndPressureAndAltitude( float *temper
 
     *temperature = BMP280_CompensateTemperature() / 100.0f;
 
-    *pressure    = BMP280_CompensatePressure() / 256.0f;
+    *pressure    = BMP280_CompensatePressure();
 
     if (!altitude_initialized || P0 == 0)
     {
