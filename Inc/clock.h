@@ -1,8 +1,8 @@
 #ifndef INC_CLOCK_H_
 #define INC_CLOCK_H_
 
-#define RCC_SYS_CLOCK_HZ 100000000UL
-#define RCC_APB1_CLOCK_HZ 50000000UL
+#define RCC_SYS_CLOCK_HZ 100000000 
+#define RCC_APB1_CLOCK_HZ 50000000
 
 typedef enum
 {
@@ -56,10 +56,11 @@ typedef enum
 
 
 
-void rcc_enable_AHB1(AHB1_peripheral_t peripheral);
-void rcc_enable_AHB2(AHB2_peripheral_t peripheral);
-void rcc_enable_APB1(APB1_peripheral_t peripheral);
-void rcc_enable_APB2(APB2_peripheral_t peripheral);
-void rcc_init(void);
+void clock_enable_AHB1(AHB1_peripheral_t peripheral);
+void clock_enable_AHB2(AHB2_peripheral_t peripheral);
+void clock_enable_APB1(APB1_peripheral_t peripheral);
+void clock_enable_APB2(APB2_peripheral_t peripheral);
+void clock_init(void);
+
 
 #endif /* INC_CLOCK_H_ */
