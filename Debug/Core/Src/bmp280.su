@@ -1,0 +1,14 @@
+bmp280.c:35:29:BMP280_WriteReg	16	static
+bmp280.c:45:29:BMP280_ReadReg	16	static
+bmp280.c:55:29:BMP280_ReadRegs	16	static
+bmp280.c:65:29:BMP280_CheckID	16	static
+bmp280.c:86:29:BMP280_Reset	8	static
+bmp280.c:95:29:BMP280_ReadCalibration	32	static
+bmp280.c:117:29:BMP280_SetCtrlMeas	8	static
+bmp280.c:126:29:BMP280_SetConfig	8	static
+bmp280.c:135:22:BMP280_Init	8	static
+bmp280.c:167:29:BMP280_ReadRawData	16	static
+bmp280.c:182:16:BMP280_CompensateTemperature	24	static
+bmp280.c:199:17:BMP280_CompensatePressure	24	static
+bmp280.c:237:22:BMP280_SetReferencePressure	8	static
+bmp280.c:255:22:BMP280_ReadTemperatureAndPressureAndAltitude	24	static
