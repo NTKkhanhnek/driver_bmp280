@@ -1,6 +1,6 @@
 #include "bmp280.h"
 #include "delay.h"
-#include "rcc.h"
+#include "clock.h"
 
 volatile float temperature = 0.0f;
 volatile float pressure = 0.0f;
