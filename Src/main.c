@@ -38,9 +38,7 @@ int main(void)
         float current_pressure = 0.0f;
         float current_altitude = 0.0f;
 
-        bmp280_status = BMP280_ReadTemperatureAndPressureAndAltitude(&current_temperature,
-                                                                     &current_pressure,
-                                                                     &current_altitude);
+        bmp280_status = BMP280_ReadTemperatureAndPressureAndAltitude(&current_temperature, &current_pressure, &current_altitude);
         if (bmp280_status != BMP280_OK)
         {
             app_error_handler();
