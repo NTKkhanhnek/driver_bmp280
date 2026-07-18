@@ -3,7 +3,7 @@
 #define RCC_ADDR 0x40023800
 #define FLASH_ADDR 0x40023C00
 
-void rcc_init(void)
+void clock_init(void)
 {
     uint32_t* RCC_CR=(uint32_t*)(RCC_ADDR + 0x00);
     uint32_t* RCC_PLLCFGR=(uint32_t*)(RCC_ADDR + 0x04);
