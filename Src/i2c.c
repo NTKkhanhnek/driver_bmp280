@@ -1,5 +1,5 @@
 #include "i2c.h"
-#include "rcc.h"
+#include "clock.h"
 
 #define GPIOB_ADDR      0x40020400
 #define I2C1_ADDR       0x40005400
