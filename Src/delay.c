@@ -1,41 +1,66 @@
-#include "delay.h"
+#include "clock.h"
+#include <stdint.h>
 
-#define DEMCR       (*(volatile uint32_t *)0xE000EDFC)
-#define DWT_CTRL    (*(volatile uint32_t *)0xE0001000)
-#define DWT_CYCCNT  (*(volatile uint32_t *)0xE0001004)
+#define TIM1_ADDR_BASE 0x40010000
+#define ADD_NVIC 0xE000E100
+#define TIMER1 1
+#define SYSTICK 2
+#define DELAY_SRC TIMER1 
 
-#define DEMCR_TRCENA      (1UL << 24)
-#define DWT_CTRL_CYCCNTENA (1UL << 0)
+void delay_init(void){
 
-static uint32_t cycles_per_us = 16;
+   #if (DELAY_SRC == TIMER1)   
+      clock_enable_APB2(TIM1_peripheral);
+  // set 1 msec for timer1
+  // rcc --> 16Mhz --> PSC = 16 --> 1000000Hz | 1cnt - 1us
+  //ARR = 1000    |  1000cnt - 1ms 
+ 
+ uint16_t* TIM1_ARR = (uint16_t*) (TIM1_ADDR_BASE + 0x2C);
+ uint16_t* TIM1_PSC = (uint16_t*) (TIM1_ADDR_BASE + 0x28);
+ *TIM1_PSC = 16-1;
+ *TIM1_ARR = 1000;
+ //interrupt timer1
+  uint16_t* TIM1_DIER = (uint16_t*) (TIM1_ADDR_BASE + 0x0C);
+    *TIM1_DIER |= ( 1 << 0 ); // enable interrupt for timer1
 
-void delay_init(uint32_t core_clock_hz)
-{
-    cycles_per_us = core_clock_hz / 1000000UL;
-    if (cycles_per_us == 0)
-    {
-        cycles_per_us = 1;
-    }
+uint16_t* TIM1_CR1 = (uint16_t*) (TIM1_ADDR_BASE + 0x00);
+*TIM1_CR1 |= ( 1 << 0 ); // enable counter for timer1
 
-    DEMCR |= DEMCR_TRCENA;
-    DWT_CYCCNT = 0;
-    DWT_CTRL |= DWT_CTRL_CYCCNTENA;
+uint32_t* NVIC_ISER0 = (uint32_t*) (ADD_NVIC + 0x00);
+ *NVIC_ISER0 |= (1 << 25 );  // enable timer1 interrupt in NVIC
+#else // delay using systick
+      uint32_t* SYST_CSR = (uint32_t*) (0xE000E010);
+        *SYST_CSR |= (0b11 << 0); // enable systick and interrupt systick
+
+      uint32_t* SYST_RVR = (uint32_t*) (0xE000E014);
+        *SYST_RVR = 16000 - 1; // 1ms
+  // systick is in the <0 position> of the NVIC, so we don't need to enable it in the NVIC 
+    
+
+#endif
+
 }
 
-void delay_us(uint32_t us)
-{
-    uint32_t start = DWT_CYCCNT;
-    uint32_t cycles = us * cycles_per_us;
+volatile uint32_t tim1_cnt = 0;
 
-    while ((uint32_t)(DWT_CYCCNT - start) < cycles)
-    {
-    }
+
+#if (DELAY_SRC == TIMER1) 
+void TIM1_UP_TIM10_IRQHandler(){
+   uint16_t* TIM1_SR = (uint16_t*) (TIM1_ADDR_BASE + 0x10);
+      *TIM1_SR &= ~( 1 << 0 ); // clear UIF flag 
+      tim1_cnt++;
+}
+#else // delay using systick
+//void SysTick_Handler(){
+  //   tim1_cnt++;
+//}
+#endif
+
+void delay_ms(uint32_t ms){
+        uint32_t current_time = tim1_cnt;
+        while ((tim1_cnt - current_time) < ms);
 }
 
-void delay_ms(uint32_t ms)
-{
-    while (ms-- > 0)
-    {
-        delay_us(1000);
-    }
-}
+
+
+
