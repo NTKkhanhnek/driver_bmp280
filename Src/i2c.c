@@ -39,6 +39,26 @@ volatile uint32_t *I2C1_TRISE    = (volatile uint32_t *)(I2C1_ADDR + 0x20);
 #define I2C_STANDARD_CCR    250
 #define I2C_STANDARD_TRISE  51
 
+static I2C_Status_t i2c_wait_flag_set(volatile uint32_t *reg, uint32_t flag);
+static I2C_Status_t i2c_send_address(uint8_t dev_addr, uint8_t read);
+static void i2c_clear_addr_flag(void);
+I2C_Status_t i2c_start(void);
+void i2c_stop(void);
+I2C_Status_t i2c_send_byte(uint8_t data);
+I2C_Status_t i2c_read_byte(uint8_t *data, uint8_t ack);
+I2C_Status_t i2c_master_transmit(uint8_t dev_addr, const uint8_t *data, uint16_t len);
+I2C_Status_t i2c_master_receive(uint8_t dev_addr, uint8_t *data, uint16_t len);
+
+I2C_Status_t i2c_start(void)
+{
+    *I2C1_CR1 |= I2C_CR1_START;
+    return i2c_wait_flag_set(I2C1_SR1, I2C_SR1_SB);
+} // Set bit START in CR1 to start
+
+void i2c_stop(void)
+{
+    *I2C1_CR1 |= I2C_CR1_STOP;
+} // Set bit STOP in CR1 to STOP
 
 static I2C_Status_t i2c_wait_flag_set(volatile uint32_t *reg, uint32_t flag)
 {
@@ -60,17 +80,6 @@ static void i2c_clear_addr_flag(void)
     temp = *I2C1_SR2;
     (void)temp;
 } // read SR1 then SR2 to clear addr flag
-
-I2C_Status_t i2c_start(void)
-{
-    *I2C1_CR1 |= I2C_CR1_START;
-    return i2c_wait_flag_set(I2C1_SR1, I2C_SR1_SB);
-} // Set bit START in CR1 to start
-
-void i2c_stop(void)
-{
-    *I2C1_CR1 |= I2C_CR1_STOP;
-} // Set bit STOP in CR1 to STOP
 
 static I2C_Status_t i2c_send_address(uint8_t dev_addr, uint8_t read)
 {
@@ -96,8 +105,8 @@ static I2C_Status_t i2c_send_address(uint8_t dev_addr, uint8_t read)
 
 void i2c_init(void)
 {
-    rcc_enable_AHB1(GPIOB_peripheral);
-    rcc_enable_APB1(I2C1_peripheral);
+    clock_enable_AHB1(GPIOB_peripheral);
+    clock_enable_APB1(I2C1_peripheral);
 
     *GPIOB_MODER &= ~((0b11 << 12) | (0b11 << 14)); 
     *GPIOB_MODER |=  ((0b10 << 12) | (0b10 << 14)); // SDA+ SCL mode ALter
