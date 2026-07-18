@@ -17,10 +17,14 @@ typedef enum
     DMA2_peripheral
 } AHB1_peripheral_t;
 
+void clock_enable_AHB1(AHB1_peripheral_t peripheral);
+
 typedef enum
 {
     OTGFS_peripheral =7
 } AHB2_peripheral_t;
+
+void clock_enable_AHB2(AHB2_peripheral_t peripheral);
 
 typedef enum
 {
@@ -38,6 +42,8 @@ typedef enum
     PWR_peripheral = 28
 } APB1_peripheral_t;
 
+void clock_enable_APB1(APB1_peripheral_t peripheral);
+
 typedef enum
 {
     TIM1_peripheral =0,
@@ -54,13 +60,8 @@ typedef enum
     SPI5_peripheral =20
 } APB2_peripheral_t;
 
-
-
-void clock_enable_AHB1(AHB1_peripheral_t peripheral);
-void clock_enable_AHB2(AHB2_peripheral_t peripheral);
-void clock_enable_APB1(APB1_peripheral_t peripheral);
 void clock_enable_APB2(APB2_peripheral_t peripheral);
-void clock_init(void);
 
+void clock_init(void);
 
 #endif /* INC_CLOCK_H_ */
